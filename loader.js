@@ -5,6 +5,18 @@ Main.Loader = function(game) {};
 Main.Loader.prototype = {
     preload:  function() {
         game.stage.backgroundColor = '#000020';
+        game.load.image('sun', 'assets/sprites/sun.png');
+        game.load.image('planet1', 'assets/sprites/p1shaded.png');
+        game.load.image('planet2', 'assets/sprites/p2shaded.png');
+        game.load.image('planet3', 'assets/sprites/p3shaded.png');
+        game.load.image('planet4', 'assets/sprites/p4shaded.png');
+        game.load.image('planet5', 'assets/sprites/p5shaded.png');
+        game.load.image('planet6', 'assets/sprites/p6shaded.png');
+        game.load.image('planet7', 'assets/sprites/p7shaded.png');
+        game.load.image('planet8', 'assets/sprites/p8shaded.png');
+        game.load.image('planet9', 'assets/sprites/p9shaded.png');
+        game.load.image('planet10', 'assets/sprites/p10shaded.png');
+        game.load.image('arrow', 'assets/sprites/longarrow2.png');
     },
     
     create: function() {
@@ -57,48 +69,5 @@ Common = {
                 }
             }
         }   
-    }
-}
-
-// http://stackoverflow.com/questions/1060008/is-there-a-way-to-detect-if-a-browser-window-is-not-currently-active
-// No idea if I'm using this correctly
-systemPauseCheck = function(pauseCallback, resumeCallback) {
-    var hidden = "hidden";
-
-    // Standards:
-    if (hidden in document)
-        document.addEventListener("visibilitychange", onchange);
-    else if ((hidden = "mozHidden") in document)
-        document.addEventListener("mozvisibilitychange", onchange);
-    else if ((hidden = "webkitHidden") in document)
-        document.addEventListener("webkitvisibilitychange", onchange);
-    else if ((hidden = "msHidden") in document)
-        document.addEventListener("msvisibilitychange", onchange);
-    // IE 9 and lower:
-    else if ('onfocusin' in document)
-        document.onfocusin = document.onfocusout = onchange;
-    // All others:
-    else
-        window.onpageshow = window.onpagehide 
-            = window.onfocus = window.onblur = onchange;
-
-    function onchange (evt) {
-        var v = 'visible', h = 'hidden',
-            evtMap = { 
-                focus:v, focusin:v, pageshow:v, blur:h, focusout:h, pagehide:h 
-            };
-
-        evt = evt || window.event;
-        if (evt.type in evtMap)
-            document.body.className = evtMap[evt.type];
-        else        
-            document.body.className = this[hidden] ? "hidden" : "visible";
-        
-        if(document.body.className == h) {
-            pauseCallback();
-        }
-        else {
-            resumeCallback();
-        }
     }
 }
