@@ -5,6 +5,13 @@ Main.Loader = function(game) {};
 Main.Loader.prototype = {
     preload:  function() {
         game.stage.backgroundColor = '#000020';
+        
+        this.loadingLabel = game.add.text(Main.width / 2, Main.height / 2, 'Loading. Please wait...',
+                                     {font: 'bold 24pt Arial', fill:'#fff'});
+        this.loadingLabel.anchor.setTo(0.5);
+        game.add.tween(this.loadingLabel).
+                    to({alpha: 0.1}, 1000, Phaser.Easing.Quadratic.Out, true, 0, 20, true);
+        
         game.load.image('back', 'assets/sprites/bg.png');
         game.load.image('sun', 'assets/sprites/sun.png');
         game.load.image('planet1', 'assets/sprites/p1shaded.png');
@@ -18,9 +25,12 @@ Main.Loader.prototype = {
         game.load.image('planet9', 'assets/sprites/p9shaded.png');
         game.load.image('planet10', 'assets/sprites/p10shaded.png');
         game.load.image('arrow', 'assets/sprites/longarrow2.png');
+        
+        game.load.audio('bgmusic', 'assets/sounds/DST-StardustMemory.ogg');
     },
     
     create: function() {
+        this.loadingLabel = null;
         game.state.start('Playstate');
     }
 }

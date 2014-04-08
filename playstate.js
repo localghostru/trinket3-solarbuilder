@@ -28,9 +28,9 @@ const ARROW_MAX_SCALE = 2;
 
 const NAME_SYLL_1 = ['Ve', 'Te', 'Me', 'De', 'Ze', 'Ce', 'Pe', 'Be', 'Ca', 'Pa', 'Sa', 'Da', 'Gi', 'Di', 'Bi', 'U',
                      'Wi', 'Chi', 'Thi', 'Rat', 'Cat', 'Bat', 'Ter', 'Ver', 'Cer', 'Pan', 'Quo', 'Qui', 'Pho', 'A',
-                     'Ar', 'Ex', 'On', 'Ju', 'Ni', 'Um', 'Tao', 'Veo', 'Thu', 'Men', 'Bet', 'Mer', 'Sep', 'Nue'];
+                     'Ar', 'An', 'Ex', 'On', 'Ju', 'Ni', 'Um', 'Tao', 'Veo', 'Thu', 'Men', 'Bet', 'Mer', 'Sep', 'Nue'];
 const NAME_SYLL_2 = ['', '', '', '', '', '', '', '', '', '', '', '', '', 'ba', 'ma', 'mi', 'za', 'ze', 've', 'vo',
-                     'a', 'y', 'ga', 'ge', 'bo', 'du', 'da', 'do', 'ra', 'sh', 'he', 'hi', 'ya', 'yo', 'pu', 'po'];
+                     'a', 'y', 'ga', 'ge', 'bo', 'du', 'da', 'do', 'ra', 'sh', 'he', 'hi', 'ya', 'yo', 'pu', 'po', 'ta'];
 const NAME_SYLL_3 = ['nus', 'tus', 'rus', 'res', 'ter', 'ley', 'ney', 'nis', 'tis', 'ris', 'kis', 'ka', 'na',
                     'nia', 'ra', 'ria', 'kia', 'tia', 'to', 'lo', 'no', 'rea', 'nea', 'zea', 'zi', 'vi', 'xi'];
 
@@ -43,6 +43,9 @@ Main.Playstate.prototype = {
         bg.scale.x = bg.scale.y = Main.width * 4 / 1024;
         game.camera.setBoundsToWorld();
         game.camera.focusOnXY(0, 0);
+        
+        this.bgmusic = game.add.sound('bgmusic');
+        this.bgmusic.play('', 0, 0.6, true);
         
         this.age = 0;
         this.score = 0;       
