@@ -5,6 +5,7 @@ Main.Loader = function(game) {};
 Main.Loader.prototype = {
     preload:  function() {
         game.stage.backgroundColor = '#000020';
+        game.load.image('back', 'assets/sprites/bg.png');
         game.load.image('sun', 'assets/sprites/sun.png');
         game.load.image('planet1', 'assets/sprites/p1shaded.png');
         game.load.image('planet2', 'assets/sprites/p2shaded.png');
@@ -25,7 +26,7 @@ Main.Loader.prototype = {
 }
 
 Common = {
-    myG: 1,
+    myG: 2,
     
     getAngle: function(body1, body2) {
         return Math.atan2(body2.centerY - body1.centerY, body2.centerX - body1.centerX);
@@ -40,8 +41,7 @@ Common = {
     },
     
     getFirstSpeed: function(sun, planet) {
-        return Math.pow(this.myG * sun.mass /
-            Math.pow(this.getSquaredDistance(planet, sun), 0.5), 0.5);
+        return Math.sqrt(this.myG * sun.mass / Math.sqrt(this.getSquaredDistance(planet, sun)));
     },
     
     getSecondSpeed: function(sun, planet) {
@@ -51,6 +51,20 @@ Common = {
     getRandomSpeed: function(sun, planet) {
         var first = this.getFirstSpeed(sun, planet);
         return first + Math.random() * (this.getSecondSpeed(sun, planet) - first) / 4;
+    },
+    
+    isAngleBetween: function(angle, edge1, edge2) {
+        if(edge1 < -Math.PI / 4 && edge2 > Math.PI / 4) {
+            edge1 += Math.PI * 2;
+            if (angle < -Math.PI / 4) angle += Math.PI * 2;
+        }
+        else if (edge1 > Math.PI / 4 && edge2 < -Math.PI / 4) {
+            edge2 += Math.PI * 2;
+            if (angle < -Math.PI / 4) angle += Math.PI * 2;
+        }
+        
+        return edge1 >= angle && angle >= edge2 ||
+               edge2 >= angle && angle >= edge1;
     },
     
     checkCollision: function(body1, body2) {

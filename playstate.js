@@ -3,16 +3,20 @@
     2. Right(?) pane with
         2.1 Statistics
         2.2 ...?
-    3. Score.
+    3. Score. --- done in a awy
     4. Adding planets by time or by will of player/button
     5. Images instead of bitmapdata --- done
-    6. Planet info on hover --- mostly done, add names/numbers?
+    6. Planet info on hover --- mostly done
+        6.1 Distance to sun in planet info
+        6.2 add names/numbers?
     7. Time counter
+    8. Gameover on crash
+    
 
 */
 
-const MIN_SPEED_MACH1 = 0.9;    // multiplied by mach1 for the planet
-const MAX_SPEED_MACH1 = 1.3;    // multiplied by mach1 for the planet (mach 2 is 1.414214 times mach 1)
+const MIN_SPEED_MACH1 = 0.95;    // multiplied by mach1 for the planet
+const MAX_SPEED_MACH1 = 1.15;    // multiplied by mach1 for the planet (mach 2 is 1.414214 times mach 1)
 const ARROW_SIZE = 72;          // pixels long, not sure how to get this scale-independent on runtime
 const ARROW_MIN_SCALE = 0.25;
 const ARROW_MAX_SCALE = 2;
@@ -22,46 +26,43 @@ Main.Playstate = function(game) {};
 Main.Playstate.prototype = {
     create: function() {    
         game.world.setBounds(-Main.width * 2, -Main.height * 2, Main.width * 4, Main.height * 4);
+        bg = game.add.sprite(-Main.width * 2, -Main.height * 2, 'back');
+        bg.scale.x = bg.scale.y = Main.width * 4 / 1024;
+        game.camera.setBoundsToWorld();
         game.camera.focusOnXY(0, 0);
+        
+        this.age = 0;
+        this.score = 0;       
+        
+        this.ageLabel = game.add.text(10, 10, 'Age: ', {font: 'bold 14pt Arial', fill:'rgba(255, 255, 255, 0.8)'})
+        this.ageLabel.fixedToCamera = true;
+        this.updateAge();
+        this.scoreLabel = game.add.text(10, 40, 'Score: ', {font: 'bold 14pt Arial', fill:'rgba(255, 255, 255, 0.8)'})
+        this.scoreLabel.fixedToCamera = true;
+        this.updateScore();
+        
         
         this.bodies = game.add.group();
         
         this.sun = new Planet(0, 0, '#fff0a0', 40, 1000000, 'sun', 0.5);
-        var planet = new Planet(this.sun.centerX + 100, this.sun.centerY, '#ff00ff', 15, 10, 'planet10', 15/80);
-        planet.setVelocity(0, -Common.getRandomSpeed(this.sun, planet));
+        this.initialPlanet = new Planet(this.sun.centerX - 150, this.sun.centerY, '#ff00ff', 15, 10, 'planet10', 15/80);
+        this.initialPlanet.setVelocity(0, Common.getRandomSpeed(this.sun, this.initialPlanet));
+        this.initialPlanet.setUpNewYear(this);
         
         this.bodies.add(this.sun);
-        this.bodies.add(planet);
+        this.bodies.add(this.initialPlanet);
         
         this.arrow = game.add.sprite(0, 0, 'arrow');
         this.arrow.anchor.setTo(1, 0.5);
         this.arrow.kill();
         
+        this.createMenu();
+        
         this.noUpdate = false;
         this.addingPlanet = false;
-        this.game.onPause.add(this.pause, this);
-        this.game.onResume.add(this.resume, this);      
-        
         this.lastUpdateTime = game.time.now;
         game.input.onDown.add(this.onGameClick, this);
-        
-        var bmd = game.add.bitmapData(200, Main.height);
-        bmd.ctx.rect(0, 0, bmd.width, bmd.height);
-        bmd.ctx.fillStyle = '#808080';
-        bmd.ctx.fill();
-        this.menuBG = game.add.sprite(0, 0, bmd);
-        this.menuBG.inputEnabled = true;
-        this.menuBG.events.onInputOver.add(this.onMenuOver, this);
-        this.menuBG.events.onInputOut.add(this.onMenuOut, this);    
-        
-        this.menuGroup = game.add.group();
-        this.menuGroup.add(this.menuBG);
-        this.menuGroup.x = Main.width - bmd.width;
-        this.menuGroup.y = 0;
-        this.menuGroup.alpha = 0.3;
-        this.menuGroup.fixedToCamera = true;
-        
-        cursors = game.input.keyboard.createCursorKeys();
+        //cursors = game.input.keyboard.createCursorKeys();
         
         scaleCloserKey = game.input.keyboard.addKey(Phaser.Keyboard.NUMPAD_ADD);
         scaleAwayKey = game.input.keyboard.addKey(Phaser.Keyboard.NUMPAD_SUBTRACT);
@@ -69,56 +70,17 @@ Main.Playstate.prototype = {
         scaleAwayKey.onDown.add(this.scaleAway, this);
     },
     
-    scaleCloser: function () {
-        game.world.scale.x = game.world.scale.y = 1;
-        this.menuGroup.visible = true;
-    },
-    
-    scaleAway: function () {
-        game.world.scale.x = game.world.scale.y = 0.5;
-        this.menuGroup.visible = false;
-    },    
-    
-    onMenuOver: function() {
-        this.menuGroup.alpha = 0.7;
-    },
-    
-    onMenuOut: function() {
-        this.menuGroup.alpha = 0.3;
-    },
-    
-    pause: function() {
-//        console.log("Paused: " + game.time.now);
-        this.noUpdate = true;
-    },
-    
-    resume: function() {
-//        console.log("Resumed: " + game.time.now);
-        this.noUpdate = false;
-        this.lastUpdateTime = game.time.now;
-    },
-    
     update: function() {        
         if(this.addingPlanet) {
             var px = (game.input.activePointer.x - Main.width / 2) / game.camera.scale.x;
             var py = (game.input.activePointer.y - Main.height / 2) / game.camera.scale.y;
-            var distToPointer = Math.pow(Math.pow(this.arrow.x - px, 2) + Math.pow(this.arrow.y - py, 2), 0.5);
+            var distToPointer = Math.sqrt(Math.pow(this.arrow.x - px, 2) + Math.pow(this.arrow.y - py, 2));
             if(distToPointer > ARROW_MAX_SCALE * ARROW_SIZE) distToPointer = ARROW_MAX_SCALE * ARROW_SIZE;
             if(distToPointer < ARROW_MIN_SCALE * ARROW_SIZE) distToPointer = ARROW_MIN_SCALE * ARROW_SIZE;
             this.arrow.scale.x = distToPointer / ARROW_SIZE;
             // For this particular png I want it to be slightly narrower
             this.arrow.scale.y = distToPointer / ARROW_SIZE / 1.5;
             this.arrow.rotation = Math.atan2(this.arrow.y - py, this.arrow.x - px);
-        } else {
-            if (cursors.up.isDown)  {
-                game.camera.y -= 4;
-            } else if (cursors.down.isDown) {
-                game.camera.y += 4;
-            } if (cursors.left.isDown) {
-                game.camera.x -= 4;
-            } else if (cursors.right.isDown) {
-                game.camera.x += 4;
-            }
         }
         
         if(!this.noUpdate) { 
@@ -137,9 +99,31 @@ Main.Playstate.prototype = {
         }
         this.lastUpdateTime = game.time.now;
     },
+    
+    updateAge: function() {
+        this.ageLabel.setText('Years passed: ' + this.age);
+    },
+    
+    updateScore: function() {
+        this.scoreLabel.setText('Score: ' + this.score);
+    },
         
-    render: function () {
-        //game.debug.cameraInfo(game.camera, 500, 32);
+    scaleCloser: function () {
+        game.world.scale.x = game.world.scale.y = 1;
+        this.menuGroup.visible = true;
+    },
+    
+    scaleAway: function () {
+        game.world.scale.x = game.world.scale.y = 0.5;
+        this.menuGroup.visible = false;
+    },    
+    
+    onMenuOver: function() {
+        this.menuGroup.alpha = 0.7;
+    },
+    
+    onMenuOut: function() {
+        this.menuGroup.alpha = 0.3;
     },
     
     onGameClick: function(pointer) {
@@ -166,12 +150,56 @@ Main.Playstate.prototype = {
             var speed = speed1 + (speed2 - speed1) * scaleFraction;
             
             this.newPlanet.setVelocity(-speed * Math.cos(this.arrow.rotation), -speed * Math.sin(this.arrow.rotation));
+            this.newPlanet.setUpNewYear(this);
             
             this.arrow.kill();
             this.addingPlanet = false;
             this.noUpdate = false;
             this.lastUpdateTime = game.time.now;            
         }
+    },
+    
+    createMenu: function() {
+        var bmd = game.add.bitmapData(200, 200);
+        bmd.ctx.rect(0, 0, bmd.width, bmd.height);
+        bmd.ctx.fillStyle = '#808080';
+        bmd.ctx.fill();
+        menuBG = game.add.sprite(0, 0, bmd);
+        menuBG.inputEnabled = true;
+        menuBG.events.onInputOver.add(this.onMenuOver, this);
+        menuBG.events.onInputOut.add(this.onMenuOut, this);    
+        
+        this.menuGroup = game.add.group();        
+        this.menuGroup.x = Main.width - bmd.width;
+        this.menuGroup.y = 0;
+        this.menuGroup.alpha = 0.3;
+        this.menuGroup.fixedToCamera = true;
+        
+        this.menuGroup.add(menuBG);
+        
+        bmd = game.add.bitmapData(180, 40);
+        bmd.ctx.rect(0, 0, bmd.width, bmd.height);
+        var grd = bmd.ctx.createLinearGradient(0, 0, bmd.width, 0);
+        grd.addColorStop(0, "#60ff00");
+        grd.addColorStop(1, "#ff6000");
+        bmd.ctx.fillStyle = grd;
+        bmd.ctx.fill();
+        
+        this.planetForgingBar = game.add.sprite(10, 50, bmd);
+        this.menuGroup.add(this.planetForgingBar);
+    },
+    
+    yearPassed: function(planet) {
+        if(planet === this.initialPlanet) {
+            // Every revolution of the first planet we increase score for the number of planets already in (behind first).
+            this.score += (this.bodies.length - 2);
+            this.age++;
+            this.updateAge();
+        }
+        else {
+            this.score++;
+        }
+        this.updateScore();
     },
     
     collisionHandler: function() {
@@ -212,12 +240,16 @@ Planet.prototype.constructor = Planet;
 Planet.prototype.setVelocity = function(x, y) {
     this.customVel.x = x;
     this.customVel.y = y;
+    this.birthTime = game.time.now;
 }
 
 Planet.prototype.move = function(timePassed) {
     var dx = timePassed * this.customVel.x;
     var dy = timePassed * this.customVel.y;
     
+    if(this.star) {
+        var preAngle = Common.getAngle(this.star, this);
+    }
     this.x += dx;
     this.y += dy;
     this.centerX += dx;
@@ -226,6 +258,14 @@ Planet.prototype.move = function(timePassed) {
     this.info.y += dy;
     
     if(this.info.alpha > 0) this.buildInfoText();
+    if(this.star) {
+        var postAngle = Common.getAngle(this.star, this);
+        if(Common.isAngleBetween(this.initialAngle, preAngle, postAngle) &&
+           game.time.now - this.birthTime > 1000) {
+            // First condition in each conjunction is just checking for rotation direction. PI/12 is just something small.
+            this.callbackContext.yearPassed(this);
+        }
+    }
 }
 
 Planet.prototype.accelerate = function(bodies, timePassed) {
@@ -260,10 +300,19 @@ Planet.prototype.buildInfoText = function() {
     var infoText = 'Mass: ' + this.mass.toFixed(3) + '\n' +
                    'VelX: ' + this.customVel.x.toFixed(3) + '\n' +
                    'VelY: ' + this.customVel.y.toFixed(3);
+    if(this.star)
+        infoText += 'Dist: ' + Math.sqrt(Common.getSquaredDistance(this.star, this)).toFixed(3);
     this.info.setText(infoText);
 }
 
 Planet.prototype.onHover = function() {
     this.info.alpha = 1;
-    game.add.tween(this.info).to({alpha: 0}, 10000, Phaser.Easing.Quintic.In, true);
+    game.add.tween(this.info).to({alpha: 0}, 5000, Phaser.Easing.Quintic.In, true);
+}
+
+Planet.prototype.setUpNewYear = function(context) {
+    // This is a bad way of creating a callback :D
+    this.star = context.sun;
+    this.initialAngle = Common.getAngle(this.star, this);
+    this.callbackContext = context;
 }
