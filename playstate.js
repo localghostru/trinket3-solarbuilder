@@ -1,17 +1,17 @@
 /* TODOs
     1. Scaling. --- done in a way
-    2. Right(?) pane with
+    2. Right(?) pane with --- done in a way
         2.1 Statistics
-        2.2 ...?
-    3. Score. --- done in a awy
-    4. Adding planets by time or by will of player/button
+        2.2 Planetary forge
+    3. Score. --- done in a way
+    4. Adding planets by time or by will of player/button --- done
     5. Images instead of bitmapdata --- done
     6. Planet info on hover --- mostly done
-        6.1 Distance to sun in planet info
+        6.1 Distance to sun in planet info --- done
         6.2 add names/numbers?
-    7. Time counter
+    7. Time counter --- done
     8. Gameover on crash
-    
+    9. Zoom buttons or at least hint for grey +- 
 
 */
 
@@ -41,25 +41,25 @@ Main.Playstate.prototype = {
         this.scoreLabel.fixedToCamera = true;
         this.updateScore();
         
+        this.createMenu();
+        this.createHints();
+        this.planetForgingTween.start();
         
         this.bodies = game.add.group();
         
-        this.sun = new Planet(0, 0, '#fff0a0', 40, 1000000, 'sun', 0.5);
-        this.initialPlanet = new Planet(this.sun.centerX - 150, this.sun.centerY, '#ff00ff', 15, 10, 'planet10', 15/80);
+        this.sun = new Planet('#fff0a0', 40, 1000000, 'sun', 0.5);
+        this.initialPlanet = new Planet('#ff00ff', 15, 10, 'planet10', 15/80);
+        this.initialPlanet.placeAt(this.sun.centerX - 150, this.sun.centerY);
         this.initialPlanet.setVelocity(0, Common.getRandomSpeed(this.sun, this.initialPlanet));
         this.initialPlanet.setUpNewYear(this);
         
         this.bodies.add(this.sun);
         this.bodies.add(this.initialPlanet);
-        
-        this.arrow = game.add.sprite(0, 0, 'arrow');
-        this.arrow.anchor.setTo(1, 0.5);
-        this.arrow.kill();
-        
-        this.createMenu();
+        this.addMenuPlanetInfo(this.initialPlanet);
         
         this.noUpdate = false;
         this.addingPlanet = false;
+        this.settingPlanetVel = false;
         this.lastUpdateTime = game.time.now;
         game.input.onDown.add(this.onGameClick, this);
         //cursors = game.input.keyboard.createCursorKeys();
@@ -70,17 +70,11 @@ Main.Playstate.prototype = {
         scaleAwayKey.onDown.add(this.scaleAway, this);
     },
     
-    update: function() {        
-        if(this.addingPlanet) {
-            var px = (game.input.activePointer.x - Main.width / 2) / game.camera.scale.x;
-            var py = (game.input.activePointer.y - Main.height / 2) / game.camera.scale.y;
-            var distToPointer = Math.sqrt(Math.pow(this.arrow.x - px, 2) + Math.pow(this.arrow.y - py, 2));
-            if(distToPointer > ARROW_MAX_SCALE * ARROW_SIZE) distToPointer = ARROW_MAX_SCALE * ARROW_SIZE;
-            if(distToPointer < ARROW_MIN_SCALE * ARROW_SIZE) distToPointer = ARROW_MIN_SCALE * ARROW_SIZE;
-            this.arrow.scale.x = distToPointer / ARROW_SIZE;
-            // For this particular png I want it to be slightly narrower
-            this.arrow.scale.y = distToPointer / ARROW_SIZE / 1.5;
-            this.arrow.rotation = Math.atan2(this.arrow.y - py, this.arrow.x - px);
+    update: function() {
+        if(this.settingPlanetVel) {
+            this.drawVelocityArrow();
+        } else if (!this.addingPlanet) {
+            this.planetForgingBar.crop(this.planetForgingRect);
         }
         
         if(!this.noUpdate) { 
@@ -107,6 +101,18 @@ Main.Playstate.prototype = {
     updateScore: function() {
         this.scoreLabel.setText('Score: ' + this.score);
     },
+    
+    drawVelocityArrow: function() {
+        var px = (game.input.activePointer.x - Main.width / 2) / game.camera.scale.x;
+        var py = (game.input.activePointer.y - Main.height / 2) / game.camera.scale.y;
+        var distToPointer = Math.sqrt(Math.pow(this.arrow.x - px, 2) + Math.pow(this.arrow.y - py, 2));
+        if(distToPointer > ARROW_MAX_SCALE * ARROW_SIZE) distToPointer = ARROW_MAX_SCALE * ARROW_SIZE;
+        if(distToPointer < ARROW_MIN_SCALE * ARROW_SIZE) distToPointer = ARROW_MIN_SCALE * ARROW_SIZE;
+        this.arrow.scale.x = distToPointer / ARROW_SIZE;
+        // For this particular png I want it to be slightly narrower
+        this.arrow.scale.y = distToPointer / ARROW_SIZE / 1.5;
+        this.arrow.rotation = Math.atan2(this.arrow.y - py, this.arrow.x - px);
+    },
         
     scaleCloser: function () {
         game.world.scale.x = game.world.scale.y = 1;
@@ -114,35 +120,42 @@ Main.Playstate.prototype = {
     },
     
     scaleAway: function () {
+        if(this.addingPlanet || this.settingPlanetVel) return;
         game.world.scale.x = game.world.scale.y = 0.5;
         this.menuGroup.visible = false;
     },    
     
     onMenuOver: function() {
-        this.menuGroup.alpha = 0.7;
+        this.menuGroup.alpha = 0.8;
     },
     
     onMenuOut: function() {
-        this.menuGroup.alpha = 0.3;
+        this.menuGroup.alpha = 0.5;
+    },
+    
+    createPlanet: function() {
+        var size = Math.random() * 15 + 10;        
+        var type = Math.ceil(Math.random() * 9);
+        
+        this.newPlanet = new Planet('#0000ff', size, Math.pow(10, (size / 5) - 2),
+                                    'planet'+type, size/80);
+        this.newPlanet.visible = false;
+        this.bodies.add(this.newPlanet);
+        this.addMenuPlanetInfo(this.newPlanet);
     },
     
     onGameClick: function(pointer) {
-        if(!this.addingPlanet) {
-            var size = Math.random() * 15 + 10;
+        if(this.addingPlanet) {
             var worldXClicked = (pointer.x - Main.width / 2) / game.camera.scale.x;
             var worldYClicked = (pointer.y - Main.height / 2) / game.camera.scale.y;
-            var type = Math.ceil(Math.random() * 9);
-            this.newPlanet = new Planet(worldXClicked, worldYClicked, '#0000ff', size, Math.pow(10, (size / 5) - 2),
-                                        'planet'+type, size/80);
-            this.bodies.add(this.newPlanet);
+            this.newPlanet.placeAt(worldXClicked, worldYClicked);
+            this.newPlanet.visible = true;
             
+            // Change hint, set up arrow and state
             this.arrow.reset(worldXClicked, worldYClicked);
-            this.arrow.scale.x = 0;
-            this.arrow.scale.y = 0;
-            
-            this.addingPlanet = true;
-            this.noUpdate = true;
-        }  else {
+            this.arrow.scale.x = this.arrow.scale.y = 0;
+            this.onPlanetPlaced();
+        } else if(this.settingPlanetVel) {
             var mach1 = Common.getFirstSpeed(this.sun, this.newPlanet);
             var speed1 = mach1 * MIN_SPEED_MACH1;
             var speed2 = mach1 * MAX_SPEED_MACH1;
@@ -152,42 +165,142 @@ Main.Playstate.prototype = {
             this.newPlanet.setVelocity(-speed * Math.cos(this.arrow.rotation), -speed * Math.sin(this.arrow.rotation));
             this.newPlanet.setUpNewYear(this);
             
+            // Hide hints, arrow, change status
             this.arrow.kill();
-            this.addingPlanet = false;
-            this.noUpdate = false;
-            this.lastUpdateTime = game.time.now;            
+            this.onPlanetRun();
         }
     },
     
+    onPlanetReady: function() {
+        this.noUpdate = true;
+        this.addingPlanet = true;
+        
+        // Careful with this - it implicitly knows that there are currently only two zoom states.
+        this.scaleCloser();
+        
+        this.planetForgingLabel.setText('New planet is ready!');
+        this.placePlanetHint.visible = true;
+        this.placePlanetHintBlink.resume();
+        
+        this.createPlanet();
+    },
+    
+    onPlanetPlaced: function () {
+        this.addingPlanet = false;
+        this.settingPlanetVel = true;
+        
+        this.placePlanetHint.visible = false;
+        this.placePlanetHintBlink.pause();
+        
+        this.startPlanetHint.visible = true;
+        this.startPlanetHintBlink.resume();
+    },
+    
+    onPlanetRun: function() {
+        // Revert to the normal state        
+        this.addingPlanet = false;
+        this.settingPlanetVel = false;
+        this.noUpdate = false;
+        this.lastUpdateTime = game.time.now;
+        
+        this.planetForgingLabel.setText('Planetary forge is working...');
+        this.startPlanetHint.visible = false;
+        this.startPlanetHintBlink.pause();
+        
+        // Restart planet forging as well
+        this.planetForgingRect.width = 0;
+        this.planetForgingTween.start();
+    },
+    
     createMenu: function() {
-        var bmd = game.add.bitmapData(200, 200);
+        var bmd, grd;
+        
+        this.menuGroup = game.add.group();        
+        this.menuGroup.x = Main.width - 200;
+        this.menuGroup.y = 0;
+        this.menuGroup.alpha = 0.5;
+        this.menuGroup.fixedToCamera = true;
+        
+        // Background
+        bmd = game.add.bitmapData(200, Main.height);
         bmd.ctx.rect(0, 0, bmd.width, bmd.height);
         bmd.ctx.fillStyle = '#808080';
         bmd.ctx.fill();
-        menuBG = game.add.sprite(0, 0, bmd);
-        menuBG.inputEnabled = true;
-        menuBG.events.onInputOver.add(this.onMenuOver, this);
-        menuBG.events.onInputOut.add(this.onMenuOut, this);    
+        this.menuBG = game.add.sprite(0, 0, bmd);
+        this.menuBG.inputEnabled = true;
+        this.menuBG.events.onInputOver.add(this.onMenuOver, this);
+        this.menuBG.events.onInputOut.add(this.onMenuOut, this);
+        this.menuBGCrop = new Phaser.Rectangle(0, 0, bmd.width, 130);
+        this.menuBG.crop(this.menuBGCrop);
         
-        this.menuGroup = game.add.group();        
-        this.menuGroup.x = Main.width - bmd.width;
-        this.menuGroup.y = 0;
-        this.menuGroup.alpha = 0.3;
-        this.menuGroup.fixedToCamera = true;
+        this.menuGroup.add(this.menuBG);
         
-        this.menuGroup.add(menuBG);
+        var planetCreation = game.add.text(10, 10, "Planet creation",
+                                        {font: 'bold 14pt Arial', fill:'#fff'});
+        this.menuGroup.add(planetCreation);
         
+        var planetList = game.add.text(10, 100, "Planet list",
+                                        {font: 'bold 14pt Arial', fill:'#fff'});
+        this.menuGroup.add(planetList);
+        
+        // Planet creation progress bar
         bmd = game.add.bitmapData(180, 40);
         bmd.ctx.rect(0, 0, bmd.width, bmd.height);
-        var grd = bmd.ctx.createLinearGradient(0, 0, bmd.width, 0);
+        grd = bmd.ctx.createLinearGradient(0, 0, bmd.width, 0);
         grd.addColorStop(0, "#60ff00");
         grd.addColorStop(1, "#ff6000");
         bmd.ctx.fillStyle = grd;
         bmd.ctx.fill();
         
-        this.planetForgingBar = game.add.sprite(10, 50, bmd);
+        this.planetForgingBar = game.add.sprite(10, 35, bmd);
+        
+        this.planetForgingRect = new Phaser.Rectangle(0, 0, 0, this.planetForgingBar.height);
+        this.planetForgingTween = game.add.tween(this.planetForgingRect).
+                                    to({width: this.planetForgingBar.width}, 10000, Phaser.Easing.Linear.None, false);
+        this.planetForgingTween.onComplete.add(this.onPlanetReady, this);
+        
         this.menuGroup.add(this.planetForgingBar);
+        
+        this.planetForgingLabel = game.add.text(15, 45, "Planetary forge is working...",
+                                           {font: '11pt Arial', fill:'#fff'});
+        this.menuGroup.add(this.planetForgingLabel);
     },
+    
+    addMenuPlanetInfo: function(planet) {
+        var textY = 125 + (this.bodies.length - 2) * 20;
+        var newMenuText = game.add.text(10, textY, '', {font: '11pt Arial', fill:'#fff'});
+        planet.setMenuInfoText(newMenuText);
+        this.menuBGCrop.height += 20;
+        this.menuBG.crop(this.menuBGCrop);
+        
+        this.menuGroup.add(newMenuText);
+    },
+    
+    createHints: function() {
+        // Velocity arrow is also a kind of hint :)        
+        this.arrow = game.add.sprite(0, 0, 'arrow');
+        this.arrow.anchor.setTo(1, 0.5);
+        this.arrow.kill();
+        
+        // Text hints from now on
+        this.placePlanetHint = game.add.text(Main.width / 2, Main.height - 100, 'Place new planet',
+                                             {font: 'bold 18pt Arial', fill:'#fff'});
+        this.placePlanetHint.fixedToCamera = true;
+        this.placePlanetHint.anchor.setTo(0.5);
+        this.placePlanetHint.visible = false;
+        this.placePlanetHintBlink = game.add.tween(this.placePlanetHint).
+                                    to({alpha: 0.1}, 1000, Phaser.Easing.Quadratic.Out, true, 0, Number.MAX_VALUE, true);
+        this.placePlanetHintBlink.pause();
+        
+        this.startPlanetHint = game.add.text(Main.width / 2, Main.height - 100, 'Choose starting velocity',
+                                             {font: 'bold 18pt Arial', fill:'#fff'});
+        this.startPlanetHint.fixedToCamera = true;
+        this.startPlanetHint.anchor.setTo(0.5);
+        this.startPlanetHint.visible = false;
+        this.startPlanetHintBlink = game.add.tween(this.startPlanetHint).
+                                    to({alpha: 0.1}, 1000, Phaser.Easing.Quadratic.Out, true, 0, Number.MAX_VALUE, true);
+        this.startPlanetHintBlink.pause();
+    },    
     
     yearPassed: function(planet) {
         if(planet === this.initialPlanet) {
@@ -207,25 +320,15 @@ Main.Playstate.prototype = {
     }
 }
 
-Planet = function(x, y, color, size, mass, sprite, spritescale) {
+Planet = function(color, size, mass, sprite, spritescale) {
     this.mass = mass;
     this.radius = size / 2;
     this.customVel = new Phaser.Point();
-    this.centerX = x;
-    this.centerY = y;    
+    this.centerX = this.centerY = 0;
+    this.age = 0;    
     
-    if(sprite) {
-        Phaser.Sprite.call(this, game, x, y, sprite);
-        this.scale.x = this.scale.y = spritescale;
-    }
-    else {
-        var bm = game.add.bitmapData(size + 1, size + 1);
-        bm.ctx.fillStyle = color;
-        bm.ctx.arc(this.radius, this.radius, this.radius, 0, Math.PI * 2);
-        bm.ctx.fill();
-        Phaser.Sprite.call(this, game, x, y, bm);
-    }
-    
+    Phaser.Sprite.call(this, game, 0, 0, sprite);
+    this.scale.x = this.scale.y = spritescale;
     this.anchor.set(0.5, 0.5);
 
     this.setUpInfo();
@@ -243,6 +346,17 @@ Planet.prototype.setVelocity = function(x, y) {
     this.birthTime = game.time.now;
 }
 
+Planet.prototype.placeAt = function(x, y) {
+    dx = x - this.x;
+    dy = y - this.y;
+    this.x += dx;
+    this.y += dy;    
+    this.centerX += dx;
+    this.centerY += dy;
+    this.info.x += dx;
+    this.info.y += dy;
+}
+
 Planet.prototype.move = function(timePassed) {
     var dx = timePassed * this.customVel.x;
     var dy = timePassed * this.customVel.y;
@@ -250,20 +364,23 @@ Planet.prototype.move = function(timePassed) {
     if(this.star) {
         var preAngle = Common.getAngle(this.star, this);
     }
+    
     this.x += dx;
-    this.y += dy;
+    this.y += dy;    
     this.centerX += dx;
     this.centerY += dy;
     this.info.x += dx;
     this.info.y += dy;
     
-    if(this.info.alpha > 0) this.buildInfoText();
+    if(this.info.alpha > 0) this.buildHoverInfoText();
     if(this.star) {
         var postAngle = Common.getAngle(this.star, this);
         if(Common.isAngleBetween(this.initialAngle, preAngle, postAngle) &&
            game.time.now - this.birthTime > 1000) {
             // First condition in each conjunction is just checking for rotation direction. PI/12 is just something small.
             this.callbackContext.yearPassed(this);
+            this.age++;
+            this.menuText.setText('Planet mass: ' + this.mass.toFixed(1) + ', age: ' + this.age);
         }
     }
 }
@@ -296,13 +413,18 @@ Planet.prototype.setUpInfo = function() {
     this.info.alpha = 0;
 }
 
-Planet.prototype.buildInfoText = function() {
+Planet.prototype.buildHoverInfoText = function() {
     var infoText = 'Mass: ' + this.mass.toFixed(3) + '\n' +
                    'VelX: ' + this.customVel.x.toFixed(3) + '\n' +
                    'VelY: ' + this.customVel.y.toFixed(3);
     if(this.star)
-        infoText += 'Dist: ' + Math.sqrt(Common.getSquaredDistance(this.star, this)).toFixed(3);
+        infoText += '\nDist: ' + Math.sqrt(Common.getSquaredDistance(this.star, this)).toFixed(3);
     this.info.setText(infoText);
+}
+
+Planet.prototype.setMenuInfoText = function(textDisplayObject) {
+    this.menuText = textDisplayObject;
+    this.menuText.setText('Planet mass: ' + this.mass.toFixed(1) + ', age: ' + this.age);
 }
 
 Planet.prototype.onHover = function() {
