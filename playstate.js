@@ -8,18 +8,31 @@
     5. Images instead of bitmapdata --- done
     6. Planet info on hover --- mostly done
         6.1 Distance to sun in planet info --- done
-        6.2 add names/numbers?
-    7. Time counter --- done
+        6.2 add names/numbers? --- done
+    7. Time counter --- done    
+    12. Names? :D --- done
+        
+    To be done:
     8. Gameover on crash
-    9. Zoom buttons or at least hint for grey +- 
+    9. Zoom buttons or at least hint for grey +-     
+    10. Music
+    11. Sounds?
 
 */
 
-const MIN_SPEED_MACH1 = 0.95;    // multiplied by mach1 for the planet
-const MAX_SPEED_MACH1 = 1.15;    // multiplied by mach1 for the planet (mach 2 is 1.414214 times mach 1)
+const MIN_SPEED_MACH1 = 0.9;    // multiplied by mach1 for the planet
+const MAX_SPEED_MACH1 = 1.2;    // multiplied by mach1 for the planet (mach 2 is 1.414214 times mach 1)
 const ARROW_SIZE = 72;          // pixels long, not sure how to get this scale-independent on runtime
 const ARROW_MIN_SCALE = 0.25;
 const ARROW_MAX_SCALE = 2;
+
+const NAME_SYLL_1 = ['Ve', 'Te', 'Me', 'De', 'Ze', 'Ce', 'Pe', 'Be', 'Ca', 'Pa', 'Sa', 'Da', 'Gi', 'Di', 'Bi', 'U',
+                     'Wi', 'Chi', 'Thi', 'Rat', 'Cat', 'Bat', 'Ter', 'Ver', 'Cer', 'Pan', 'Quo', 'Qui', 'Pho', 'A',
+                     'Ar', 'Ex', 'On', 'Ju', 'Ni', 'Um', 'Tao', 'Veo', 'Thu', 'Men', 'Bet', 'Mer', 'Sep', 'Nue'];
+const NAME_SYLL_2 = ['', '', '', '', '', '', '', '', '', '', '', '', '', 'ba', 'ma', 'mi', 'za', 'ze', 've', 'vo',
+                     'a', 'y', 'ga', 'ge', 'bo', 'du', 'da', 'do', 'ra', 'sh', 'he', 'hi', 'ya', 'yo', 'pu', 'po'];
+const NAME_SYLL_3 = ['nus', 'tus', 'rus', 'res', 'ter', 'ley', 'ney', 'nis', 'tis', 'ris', 'kis', 'ka', 'na',
+                    'nia', 'ra', 'ria', 'kia', 'tia', 'to', 'lo', 'no', 'rea', 'nea', 'zea', 'zi', 'vi', 'xi'];
 
 Main.Playstate = function(game) {};
 
@@ -115,12 +128,24 @@ Main.Playstate.prototype = {
     },
         
     scaleCloser: function () {
+        if(this.addingPlanet) {
+            this.placePlanetHint.visible = true;
+            this.placePlanetHintBlink.resume();
+            this.zoomToPlaceHint.visible = false;
+            this.zoomToPlaceHintBlink.pause();
+        }
         game.world.scale.x = game.world.scale.y = 1;
         this.menuGroup.visible = true;
     },
     
     scaleAway: function () {
-        if(this.addingPlanet || this.settingPlanetVel) return;
+        if(this.settingPlanetVel) return;
+        if(this.addingPlanet) {
+            this.placePlanetHint.visible = false;
+            this.placePlanetHintBlink.pause();
+            this.zoomToPlaceHint.visible = true;
+            this.zoomToPlaceHintBlink.resume();
+        }
         game.world.scale.x = game.world.scale.y = 0.5;
         this.menuGroup.visible = false;
     },    
@@ -145,7 +170,7 @@ Main.Playstate.prototype = {
     },
     
     onGameClick: function(pointer) {
-        if(this.addingPlanet) {
+        if(this.addingPlanet && game.world.scale.x == 1) {
             var worldXClicked = (pointer.x - Main.width / 2) / game.camera.scale.x;
             var worldYClicked = (pointer.y - Main.height / 2) / game.camera.scale.y;
             this.newPlanet.placeAt(worldXClicked, worldYClicked);
@@ -216,13 +241,13 @@ Main.Playstate.prototype = {
         var bmd, grd;
         
         this.menuGroup = game.add.group();        
-        this.menuGroup.x = Main.width - 200;
+        this.menuGroup.x = Main.width - 220;
         this.menuGroup.y = 0;
         this.menuGroup.alpha = 0.5;
         this.menuGroup.fixedToCamera = true;
         
         // Background
-        bmd = game.add.bitmapData(200, Main.height);
+        bmd = game.add.bitmapData(220, Main.height);
         bmd.ctx.rect(0, 0, bmd.width, bmd.height);
         bmd.ctx.fillStyle = '#808080';
         bmd.ctx.fill();
@@ -244,7 +269,7 @@ Main.Playstate.prototype = {
         this.menuGroup.add(planetList);
         
         // Planet creation progress bar
-        bmd = game.add.bitmapData(180, 40);
+        bmd = game.add.bitmapData(200, 40);
         bmd.ctx.rect(0, 0, bmd.width, bmd.height);
         grd = bmd.ctx.createLinearGradient(0, 0, bmd.width, 0);
         grd.addColorStop(0, "#60ff00");
@@ -300,6 +325,15 @@ Main.Playstate.prototype = {
         this.startPlanetHintBlink = game.add.tween(this.startPlanetHint).
                                     to({alpha: 0.1}, 1000, Phaser.Easing.Quadratic.Out, true, 0, Number.MAX_VALUE, true);
         this.startPlanetHintBlink.pause();
+        
+        this.zoomToPlaceHint = game.add.text(Main.width / 2, Main.height - 100, 'Zoom in to place',
+                                             {font: 'bold 36pt Arial', fill:'#f88'});
+        this.zoomToPlaceHint.fixedToCamera = true;
+        this.zoomToPlaceHint.anchor.setTo(0.5);
+        this.zoomToPlaceHint.visible = false;
+        this.zoomToPlaceHintBlink = game.add.tween(this.zoomToPlaceHint).
+                                    to({alpha: 0.1}, 1000, Phaser.Easing.Quadratic.Out, true, 0, Number.MAX_VALUE, true);
+        this.zoomToPlaceHintBlink.pause();
     },    
     
     yearPassed: function(planet) {
@@ -325,7 +359,10 @@ Planet = function(color, size, mass, sprite, spritescale) {
     this.radius = size / 2;
     this.customVel = new Phaser.Point();
     this.centerX = this.centerY = 0;
-    this.age = 0;    
+    this.age = 0;
+    this.planetName = NAME_SYLL_1[Math.floor(Math.random() * NAME_SYLL_1.length)] + 
+                NAME_SYLL_2[Math.floor(Math.random() * NAME_SYLL_2.length)] + 
+                NAME_SYLL_3[Math.floor(Math.random() * NAME_SYLL_3.length)];
     
     Phaser.Sprite.call(this, game, 0, 0, sprite);
     this.scale.x = this.scale.y = spritescale;
@@ -380,7 +417,7 @@ Planet.prototype.move = function(timePassed) {
             // First condition in each conjunction is just checking for rotation direction. PI/12 is just something small.
             this.callbackContext.yearPassed(this);
             this.age++;
-            this.menuText.setText('Planet mass: ' + this.mass.toFixed(1) + ', age: ' + this.age);
+            this.menuText.setText(this.planetName + ', mass: ' + this.mass.toFixed(1) + ', age: ' + this.age);
         }
     }
 }
@@ -414,7 +451,8 @@ Planet.prototype.setUpInfo = function() {
 }
 
 Planet.prototype.buildHoverInfoText = function() {
-    var infoText = 'Mass: ' + this.mass.toFixed(3) + '\n' +
+    var infoText = this.planetName + '\n' +
+                   'Mass: ' + this.mass.toFixed(3) + '\n' +
                    'VelX: ' + this.customVel.x.toFixed(3) + '\n' +
                    'VelY: ' + this.customVel.y.toFixed(3);
     if(this.star)
@@ -424,7 +462,7 @@ Planet.prototype.buildHoverInfoText = function() {
 
 Planet.prototype.setMenuInfoText = function(textDisplayObject) {
     this.menuText = textDisplayObject;
-    this.menuText.setText('Planet mass: ' + this.mass.toFixed(1) + ', age: ' + this.age);
+    this.menuText.setText(this.planetName + ', mass: ' + this.mass.toFixed(1));
 }
 
 Planet.prototype.onHover = function() {
