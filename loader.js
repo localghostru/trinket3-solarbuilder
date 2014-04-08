@@ -80,7 +80,7 @@ Common = {
     
     checkCollision: function(body1, body2) {
         var dist = this.getSquaredDistance(body1, body2);
-        return (dist < Math.pow(body1.radius + body2.radius, 2));
+        return (dist <= Math.pow(body1.radius + body2.radius, 2));
     },
     
     checkGroupCollision: function(bodies, callback, context) {

@@ -6,18 +6,18 @@
     3. Score. --- done in a way
     4. Adding planets by time or by will of player/button --- done
     5. Images instead of bitmapdata --- done
-    6. Planet info on hover --- mostly done
+    6. Planet info on hover --- done
         6.1 Distance to sun in planet info --- done
         6.2 add names/numbers? --- done
     7. Time counter --- done    
     12. Names? :D --- done
         
     To be done:
-    8. Gameover on crash --- almost
-    9. Zoom buttons or at least hint for grey +-     
+    8. Gameover on crash --- done
+    9. Zoom buttons and sound toggle button
     10. Music --- done
     11. Sounds?
-    13. Restarting game after gameover
+    13. Restarting game after gameover --- done
 
 */
 
@@ -48,47 +48,32 @@ Main.Playstate.prototype = {
         this.bgmusic = game.add.sound('bgmusic');
         this.bgmusic.play('', 0, 0.6, true);
         
-        this.age = 0;
-        this.score = 0;       
-        
-        this.ageLabel = game.add.text(10, 10, 'Age: ', {font: 'bold 14pt Arial', fill:'rgba(255, 255, 255, 0.8)'})
-        this.ageLabel.fixedToCamera = true;
-        this.updateAge();
-        this.scoreLabel = game.add.text(10, 40, 'Score: ', {font: 'bold 14pt Arial', fill:'rgba(255, 255, 255, 0.8)'})
-        this.scoreLabel.fixedToCamera = true;
-        this.updateScore();
-        
         this.createMenu();
         this.createHints();
         this.createCatastropheFramer();
-        this.planetForgingTween.start();
+        
+        this.ageLabel = game.add.text(10, 10, 'Years passed: ', {font: 'bold 14pt Arial', fill:'rgba(255, 255, 255, 0.8)'})
+        this.ageLabel.fixedToCamera = true;
+        this.scoreLabel = game.add.text(10, 40, 'Score: ', {font: 'bold 14pt Arial', fill:'rgba(255, 255, 255, 0.8)'})
+        this.scoreLabel.fixedToCamera = true;
         
         this.bodies = game.add.group();
         
-        this.sun = new Planet('#fff0a0', 40, 1000000, 'sun', 0.5);
-        this.initialPlanet = new Planet('#ff00ff', 15, 10, 'planet10', 15/80);
-        this.initialPlanet.placeAt(this.sun.centerX - 150, this.sun.centerY);
-        this.initialPlanet.setVelocity(0, Common.getRandomSpeed(this.sun, this.initialPlanet));
-        this.initialPlanet.setUpNewYear(this);
-        
-        this.bodies.add(this.sun);
-        this.bodies.add(this.initialPlanet);
-        this.addMenuPlanetInfo(this.initialPlanet);
-        
-        this.noUpdate = false;
-        this.addingPlanet = false;
-        this.settingPlanetVel = false;
-        this.lastUpdateTime = game.time.now;
         game.input.onDown.add(this.onGameClick, this);
-        //cursors = game.input.keyboard.createCursorKeys();
         
         scaleCloserKey = game.input.keyboard.addKey(Phaser.Keyboard.NUMPAD_ADD);
         scaleAwayKey = game.input.keyboard.addKey(Phaser.Keyboard.NUMPAD_SUBTRACT);
+        startGameKey = game.input.keyboard.addKey(Phaser.Keyboard.SPACEBAR);
         scaleCloserKey.onDown.add(this.scaleCloser, this);
         scaleAwayKey.onDown.add(this.scaleAway, this);
+        startGameKey.onDown.add(this.initializeNewGame, this);
+        
+        this.gameRunning = false;
     },
     
     update: function() {
+        if(!this.gameRunning) return;
+        
         if(this.settingPlanetVel) {
             this.drawVelocityArrow();
         } else if (!this.addingPlanet) {
@@ -109,6 +94,49 @@ Main.Playstate.prototype = {
             
             Common.checkGroupCollision(this.bodies, this.collisionHandler, this);
         }
+        this.lastUpdateTime = game.time.now;
+    },
+    
+    initializeNewGame: function() {
+        if(this.gameRunning) return;
+        
+        this.bodies.destroy(true, true);
+        
+        this.sun = new Planet('#fff0a0', 40, 1000000, 'sun', 0.5);
+        this.initialPlanet = new Planet('#ff00ff', 15, 10, 'planet10', 15/80);
+        this.initialPlanet.placeAt(this.sun.centerX - 150, this.sun.centerY);
+        this.initialPlanet.setVelocity(0, Common.getRandomSpeed(this.sun, this.initialPlanet));
+        this.initialPlanet.setUpNewYear(this);
+        
+        this.bodies.add(this.sun);
+        this.bodies.add(this.initialPlanet);
+        while(this.menuGroup.length > this.menuGroupCleanSize) {
+            this.menuGroup.remove(this.menuGroup.getAt(this.menuGroupCleanSize));
+        }
+        this.menuBGCrop.height = 130;
+        this.menuBG.crop(this.menuBGCrop);
+        this.addMenuPlanetInfo(this.initialPlanet);
+        
+        this.planetForgingTween = game.add.tween(this.planetForgingRect).
+                            to({width: 200}, 10000, Phaser.Easing.Linear.None, false);
+        this.planetForgingTween.onComplete.add(this.onPlanetReady, this);
+        
+        this.scaleCloser();
+        
+        this.age = 0;
+        this.score = 0;
+        this.updateAge();
+        this.updateScore();
+        this.noUpdate = false;
+        this.gameRunning = true;
+        this.addingPlanet = false;
+        this.settingPlanetVel = false;
+        this.planetForgingTween.start();
+        this.welcomeLabel.visible = false;
+        this.startGameLabel.visible = false;
+        this.catastropheLabel.visible = false;
+        this.gameOverLabel.visible = false;
+        
         this.lastUpdateTime = game.time.now;
     },
     
@@ -141,6 +169,7 @@ Main.Playstate.prototype = {
         }
         game.world.scale.x = game.world.scale.y = 1;
         this.menuGroup.visible = true;
+        game.camera.focusOnXY(0, 0);
     },
     
     scaleAway: function () {
@@ -153,6 +182,7 @@ Main.Playstate.prototype = {
         }
         game.world.scale.x = game.world.scale.y = 0.5;
         this.menuGroup.visible = false;
+        game.camera.focusOnXY(0, 0);
     },    
     
     onMenuOver: function() {
@@ -175,6 +205,11 @@ Main.Playstate.prototype = {
     },
     
     onGameClick: function(pointer) {
+        if(!this.gameRunning) {
+            this.initializeNewGame();
+            return;
+        }
+        
         if(this.addingPlanet && game.world.scale.x == 1) {
             var worldXClicked = (pointer.x - Main.width / 2) / game.camera.scale.x;
             var worldYClicked = (pointer.y - Main.height / 2) / game.camera.scale.y;
@@ -285,15 +320,14 @@ Main.Playstate.prototype = {
         this.planetForgingBar = game.add.sprite(10, 35, bmd);
         
         this.planetForgingRect = new Phaser.Rectangle(0, 0, 0, this.planetForgingBar.height);
-        this.planetForgingTween = game.add.tween(this.planetForgingRect).
-                                    to({width: this.planetForgingBar.width}, 10000, Phaser.Easing.Linear.None, false);
-        this.planetForgingTween.onComplete.add(this.onPlanetReady, this);
         
         this.menuGroup.add(this.planetForgingBar);
         
         this.planetForgingLabel = game.add.text(15, 45, "Planetary forge is working...",
                                            {font: '11pt Arial', fill:'#fff'});
         this.menuGroup.add(this.planetForgingLabel);
+        
+        this.menuGroupCleanSize = this.menuGroup.length;
     },
     
     addMenuPlanetInfo: function(planet) {
@@ -307,6 +341,31 @@ Main.Playstate.prototype = {
     },
     
     createHints: function() {
+        // Game start and game over messages
+        this.welcomeLabel = game.add.text(Main.width / 2, Main.height / 3,
+            'Welcome to Planetary Forge!\nYour goal is to place planets\n' +
+            'so that there are no crashes\nas long as possible.',
+            {font: 'bold 18pt Arial', fill:'#fff', align: 'center'});
+        this.welcomeLabel.fixedToCamera = true;
+        this.welcomeLabel.anchor.setTo(0.5);
+        
+        this.startGameLabel = game.add.text(Main.width / 2 , Main.height * 2 / 3,
+            'Press space or click to start', {font: 'bold 18pt Arial', fill:'#fff'});
+        this.startGameLabel.fixedToCamera = true;
+        this.startGameLabel.anchor.setTo(0.5);
+        
+        this.catastropheLabel = game.add.text(Main.width / 2, Main.height / 3,
+            'Catastrophe!', {font: 'bold 24pt Arial', fill:'#fff', strokeThickness: 2, stroke: '#f00'});
+        this.catastropheLabel.fixedToCamera = true;
+        this.catastropheLabel.anchor.setTo(0.5);
+        this.catastropheLabel.visible = false;
+        
+        this.gameOverLabel = game.add.text(Main.width / 2, Main.height / 3 + 50,
+            'Game over.', {font: 'bold 14pt Arial', fill:'#fff'});
+        this.gameOverLabel.fixedToCamera = true;
+        this.gameOverLabel.anchor.setTo(0.5);
+        this.gameOverLabel.visible = false;
+        
         // Velocity arrow is also a kind of hint :)        
         this.arrow = game.add.sprite(0, 0, 'arrow');
         this.arrow.anchor.setTo(1, 0.5);
@@ -383,16 +442,23 @@ Main.Playstate.prototype = {
         var catX, catY;
         
         context.noUpdate = true;
+        context.gameRunning = false;
         context.planetForgingTween.stop();
+        context.planetForgingRect.width = 0;
         
         catX = (first.centerX + second.centerX) / 2;
         catY = (first.centerY + second.centerY) / 2;
-        if(catX < -Main.width/2 + 10 || catX > Main.width/2 - 10 ||
+        /*if(catX < -Main.width/2 + 10 || catX > Main.width/2 - 10 ||
            catY < -Main.height/2 + 10 || catX > Main.height/2 - 10) {
             context.scaleAway();
-        }
+        }*/
         game.camera.focusOnXY(catX, catY);
         context.runCatastropheFramer(catX - 100, catY - 100); // Framer size = 200
+        
+        context.startGameLabel.setText("Press space or click to restart");
+        context.startGameLabel.visible = true;
+        context.catastropheLabel.visible = true;
+        context.gameOverLabel.visible = true;
     }
 }
 
