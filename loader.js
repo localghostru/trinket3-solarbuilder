@@ -25,6 +25,7 @@ Main.Loader.prototype = {
         game.load.image('planet9', 'assets/sprites/p9shaded.png');
         game.load.image('planet10', 'assets/sprites/p10shaded.png');
         game.load.image('arrow', 'assets/sprites/longarrow2.png');
+        game.load.image('redframe', 'assets/sprites/redframe.png');
         
         game.load.audio('bgmusic', 'assets/sounds/DST-StardustMemory.ogg');
     },
@@ -82,14 +83,14 @@ Common = {
         return (dist < Math.pow(body1.radius + body2.radius, 2));
     },
     
-    checkGroupCollision: function(bodies, callback) {
+    checkGroupCollision: function(bodies, callback, context) {
         var i, j, first, second;
         for(i = 0; i < bodies.length; i++) {
             first = bodies.getAt(i);
             for(j = i + 1; j < bodies.length; j++) {
                 second = bodies.getAt(j);
                 if (this.checkCollision(first, second) && typeof(callback) == 'function') {
-                    callback(first, second);
+                    callback(context, first, second);
                 }
             }
         }   

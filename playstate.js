@@ -13,10 +13,11 @@
     12. Names? :D --- done
         
     To be done:
-    8. Gameover on crash
+    8. Gameover on crash --- almost
     9. Zoom buttons or at least hint for grey +-     
-    10. Music
+    10. Music --- done
     11. Sounds?
+    13. Restarting game after gameover
 
 */
 
@@ -28,7 +29,7 @@ const ARROW_MAX_SCALE = 2;
 
 const NAME_SYLL_1 = ['Ve', 'Te', 'Me', 'De', 'Ze', 'Ce', 'Pe', 'Be', 'Ca', 'Pa', 'Sa', 'Da', 'Gi', 'Di', 'Bi', 'U',
                      'Wi', 'Chi', 'Thi', 'Rat', 'Cat', 'Bat', 'Ter', 'Ver', 'Cer', 'Pan', 'Quo', 'Qui', 'Pho', 'A',
-                     'Ar', 'An', 'Ex', 'On', 'Ju', 'Ni', 'Um', 'Tao', 'Veo', 'Thu', 'Men', 'Bet', 'Mer', 'Sep', 'Nue'];
+                     'Ar', 'An', 'Ex', 'On', 'Ju', 'Ni', 'Um', 'Tao', 'Veo', 'Thu', 'Men', 'Bet', 'Mer', 'Sep', 'Ire'];
 const NAME_SYLL_2 = ['', '', '', '', '', '', '', '', '', '', '', '', '', 'ba', 'ma', 'mi', 'za', 'ze', 've', 'vo',
                      'a', 'y', 'ga', 'ge', 'bo', 'du', 'da', 'do', 'ra', 'sh', 'he', 'hi', 'ya', 'yo', 'pu', 'po', 'ta'];
 const NAME_SYLL_3 = ['nus', 'tus', 'rus', 'res', 'ter', 'ley', 'ney', 'nis', 'tis', 'ris', 'kis', 'ka', 'na',
@@ -59,6 +60,7 @@ Main.Playstate.prototype = {
         
         this.createMenu();
         this.createHints();
+        this.createCatastropheFramer();
         this.planetForgingTween.start();
         
         this.bodies = game.add.group();
@@ -105,7 +107,7 @@ Main.Playstate.prototype = {
                     body.move(dt);
                     }, this);
             
-            Common.checkGroupCollision(this.bodies, this.collisionHandler);
+            Common.checkGroupCollision(this.bodies, this.collisionHandler, this);
         }
         this.lastUpdateTime = game.time.now;
     },
@@ -352,8 +354,45 @@ Main.Playstate.prototype = {
         this.updateScore();
     },
     
-    collisionHandler: function() {
-        console.log("Crash!");
+    createCatastropheFramer: function() {
+        var i, frame;
+        this.frameSequence = game.add.group();
+        for(i = 0; i < 7; i++) {
+            frame = game.add.sprite(100, 100, 'redframe');
+            frame.anchor.setTo(0.5);
+            frame.scale.x = frame.scale.y = 1 - i * 0.1;
+            frame.alpha = 0;
+            this.frameSequence.add(frame);
+        }
+        this.frameSequence.visible = false;
+    },
+    
+    runCatastropheFramer: function(x, y) {
+        this.frameSequence.x = x;
+        this.frameSequence.y = y;
+        this.frameSequence.visible = true;
+        for(i = 0; i < 7; i++) {
+            game.add.tween(this.frameSequence.getAt(i)).
+                to({alpha: 1}, 200, Phaser.Easing.Quadratic.In, true, i * 100, 1, true);
+        }
+    },
+    
+    collisionHandler: function(context, first, second) {
+        if(!first.inWorld && !second.inWorld) return;
+        
+        var catX, catY;
+        
+        context.noUpdate = true;
+        context.planetForgingTween.stop();
+        
+        catX = (first.centerX + second.centerX) / 2;
+        catY = (first.centerY + second.centerY) / 2;
+        if(catX < -Main.width/2 + 10 || catX > Main.width/2 - 10 ||
+           catY < -Main.height/2 + 10 || catX > Main.height/2 - 10) {
+            context.scaleAway();
+        }
+        game.camera.focusOnXY(catX, catY);
+        context.runCatastropheFramer(catX - 100, catY - 100); // Framer size = 200
     }
 }
 
