@@ -46,27 +46,25 @@ Main.Playstate.prototype = {
         game.camera.focusOnXY(0, 0);
         
         this.bgmusic = game.add.sound('bgmusic');
-        this.bgmusic.play('', 0, 0.6, true);
+        this.bgmusic.play('', 0, 0.8, true);
+        
+        this.bodies = game.add.group();
         
         this.createMenu();
         this.createHints();
+        this.createLabelsAndControls();
         this.createCatastropheFramer();
-        
-        this.ageLabel = game.add.text(10, 10, 'Years passed: ', {font: 'bold 14pt Arial', fill:'rgba(255, 255, 255, 0.8)'})
-        this.ageLabel.fixedToCamera = true;
-        this.scoreLabel = game.add.text(10, 40, 'Score: ', {font: 'bold 14pt Arial', fill:'rgba(255, 255, 255, 0.8)'})
-        this.scoreLabel.fixedToCamera = true;
-        
-        this.bodies = game.add.group();
         
         game.input.onDown.add(this.onGameClick, this);
         
         scaleCloserKey = game.input.keyboard.addKey(Phaser.Keyboard.NUMPAD_ADD);
         scaleAwayKey = game.input.keyboard.addKey(Phaser.Keyboard.NUMPAD_SUBTRACT);
         startGameKey = game.input.keyboard.addKey(Phaser.Keyboard.SPACEBAR);
+        muteSoundKey = game.input.keyboard.addKey(Phaser.Keyboard.M);
         scaleCloserKey.onDown.add(this.scaleCloser, this);
         scaleAwayKey.onDown.add(this.scaleAway, this);
         startGameKey.onDown.add(this.initializeNewGame, this);
+        muteSoundKey.onDown.add(this.onMuteChange, this);
         
         this.gameRunning = false;
     },
@@ -136,6 +134,7 @@ Main.Playstate.prototype = {
         this.startGameLabel.visible = false;
         this.catastropheLabel.visible = false;
         this.gameOverLabel.visible = false;
+        this.crashedLabel.visible = false;
         
         this.lastUpdateTime = game.time.now;
     },
@@ -170,6 +169,7 @@ Main.Playstate.prototype = {
         game.world.scale.x = game.world.scale.y = 1;
         this.menuGroup.visible = true;
         game.camera.focusOnXY(0, 0);
+        this.zoomButton.frame = 0;
     },
     
     scaleAway: function () {
@@ -183,6 +183,7 @@ Main.Playstate.prototype = {
         game.world.scale.x = game.world.scale.y = 0.5;
         this.menuGroup.visible = false;
         game.camera.focusOnXY(0, 0);
+        this.zoomButton.frame = 1;
     },    
     
     onMenuOver: function() {
@@ -234,6 +235,16 @@ Main.Playstate.prototype = {
             this.arrow.kill();
             this.onPlanetRun();
         }
+    },
+    
+    onMuteChange: function() {
+        game.sound.mute = !game.sound.mute;
+        this.soundButton.frame = game.sound.mute ? 1 : 0;
+    },
+    
+    onZoomButtonClick: function() {
+        if(game.world.scale.x == 1) this.scaleAway();
+        else this.scaleCloser();
     },
     
     onPlanetReady: function() {
@@ -320,6 +331,7 @@ Main.Playstate.prototype = {
         this.planetForgingBar = game.add.sprite(10, 35, bmd);
         
         this.planetForgingRect = new Phaser.Rectangle(0, 0, 0, this.planetForgingBar.height);
+        this.planetForgingBar.crop(this.planetForgingRect);
         
         this.menuGroup.add(this.planetForgingBar);
         
@@ -360,8 +372,14 @@ Main.Playstate.prototype = {
         this.catastropheLabel.anchor.setTo(0.5);
         this.catastropheLabel.visible = false;
         
-        this.gameOverLabel = game.add.text(Main.width / 2, Main.height / 3 + 50,
-            'Game over.', {font: 'bold 14pt Arial', fill:'#fff'});
+        this.crashedLabel = game.add.text(Main.width / 2, Main.height / 3 + 40,
+            '... have crashed', {font: 'bold 18pt Arial', fill:'#fff'});
+        this.crashedLabel.fixedToCamera = true;
+        this.crashedLabel.anchor.setTo(0.5);
+        this.crashedLabel.visible = false;
+        
+        this.gameOverLabel = game.add.text(Main.width / 2, 2 * Main.height / 3 - 40,
+            'Game over', {font: 'bold 18pt Arial', fill:'#fff'});
         this.gameOverLabel.fixedToCamera = true;
         this.gameOverLabel.anchor.setTo(0.5);
         this.gameOverLabel.visible = false;
@@ -398,19 +416,25 @@ Main.Playstate.prototype = {
         this.zoomToPlaceHintBlink = game.add.tween(this.zoomToPlaceHint).
                                     to({alpha: 0.1}, 1000, Phaser.Easing.Quadratic.Out, true, 0, Number.MAX_VALUE, true);
         this.zoomToPlaceHintBlink.pause();
-    },    
+    },
     
-    yearPassed: function(planet) {
-        if(planet === this.initialPlanet) {
-            // Every revolution of the first planet we increase score for the number of planets already in (behind first).
-            this.score += (this.bodies.length - 2);
-            this.age++;
-            this.updateAge();
-        }
-        else {
-            this.score++;
-        }
-        this.updateScore();
+    createLabelsAndControls: function() {
+        this.ageLabel = game.add.text(10, 10, 'Years passed: ',
+                                      {font: 'bold 14pt Arial', fill:'rgba(255, 255, 255, 0.8)'})
+        this.ageLabel.fixedToCamera = true;
+        this.scoreLabel = game.add.text(10, 40, 'Score: ',
+                                        {font: 'bold 14pt Arial', fill:'rgba(255, 255, 255, 0.8)'})
+        this.scoreLabel.fixedToCamera = true;
+        
+        this.soundButton = game.add.sprite(10, 70, 'soundbutton');
+        this.soundButton.fixedToCamera = true;
+        this.soundButton.inputEnabled = true;
+        this.soundButton.events.onInputDown.add(this.onMuteChange, this);
+        
+        this.zoomButton = game.add.sprite(10, 100, 'zoombutton');
+        this.zoomButton.fixedToCamera = true;
+        this.zoomButton.inputEnabled = true;
+        this.zoomButton.events.onInputDown.add(this.onZoomButtonClick, this);
     },
     
     createCatastropheFramer: function() {
@@ -436,6 +460,19 @@ Main.Playstate.prototype = {
         }
     },
     
+    yearPassed: function(planet) {
+        if(planet === this.initialPlanet) {
+            // Every revolution of the first planet we increase score for the number of planets already in (behind first).
+            this.score += (this.bodies.length - 2);
+            this.age++;
+            this.updateAge();
+        }
+        else {
+            this.score++;
+        }
+        this.updateScore();
+    }, 
+    
     collisionHandler: function(context, first, second) {
         if(!first.inWorld && !second.inWorld) return;
         
@@ -459,6 +496,18 @@ Main.Playstate.prototype = {
         context.startGameLabel.visible = true;
         context.catastropheLabel.visible = true;
         context.gameOverLabel.visible = true;
+        
+        if(first === context.sun) {
+            context.crashedLabel.setText(second.planetName + ' has crashed into ' + first.planetName);
+        }
+        else if(second === context.sun) {
+            context.crashedLabel.setText(first.planetName + ' has crashed into ' + second.planetName);
+        }
+        else {
+            context.crashedLabel.setText(first.planetName + ' and ' + second.planetName + ' have crashed');
+        }
+        
+        context.crashedLabel.visible = true;
     }
 }
 

@@ -26,6 +26,8 @@ Main.Loader.prototype = {
         game.load.image('planet10', 'assets/sprites/p10shaded.png');
         game.load.image('arrow', 'assets/sprites/longarrow2.png');
         game.load.image('redframe', 'assets/sprites/redframe.png');
+        game.load.spritesheet('soundbutton', 'assets/sprites/soundonoff.png', 24, 24);
+        game.load.spritesheet('zoombutton', 'assets/sprites/zoomoutin.png', 24, 24);
         
         game.load.audio('bgmusic', 'assets/sounds/DST-StardustMemory.ogg');
     },
